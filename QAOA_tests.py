@@ -3,6 +3,7 @@ from dimod.utilities import qubo_to_ising
 import numpy as np
 import warnings
 import time
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
@@ -28,76 +29,13 @@ from qiskit import Aer, execute
 from qiskit.visualization import plot_histogram
 from itertools import combinations
 
+# User library
+from helper import parse_conflicts, parse_mhs, get_minimum_sets, is_hitting_set, construct_q_matrix
+
 
 # Params
+N = 1024 #Number of shots
 
-N = 1024
-
-
-# File parsing
-def parse_conflicts(filepath):
-    # get size
-    filename = filepath.name #remove folders 
-    size = int(filename.split('-')[0]) #take first number
-
-    # parse conflicts
-    collection = []
-    with filepath.open('r') as f:
-        for line in f:
-            line = line.strip()[1:-1] # remove whitespace and curly braces
-            subset = set(int(x[1:]) for x in line.split(',')) #split into items, remove c prefix
-            collection.append(subset)
-
-    return size, collection
-def parse_mhs(filepath):
-    collection = []
-    with filepath.open('r') as f:
-        str_tuples = f.read().strip()[2:-2].split('}, {') # gives list of e.g. 'c1, c3' strings
-    if str_tuples == ['']: #empty
-        collection.append[set()]
-    else: #nonempty
-        collection = []
-        for tup in str_tuples:
-            hitting_set = set(int(item[1:]) for item in tup.split(', '))
-            collection.append(hitting_set)
-    return collection
-
-def get_minimum_sets(collection):
-    argmins = []
-    minimum = np.inf
-    for subset in collection:
-        if len(subset) < minimum:
-            minimum = len(subset)
-            argmins = [subset]
-        elif len(subset) == minimum:
-            argmins.append(subset)
-    return minimum, argmins
-def is_hitting_set(subset, collection):
-    misses = [subset.isdisjoint(s) for s in collection]
-    return not any(misses)
-
-
-# We use the function construct_q_matrix to construct the Q matrix for the QUBO problem
-#Number of reads
-# Construct the Q matrix for the QUBO problem
-def construct_q_matrix(collection, universe, C):
-    Q = {}
-    assert set.union(*collection) <= universe, "The collection contains elements outside the universe"
-    # Linear terms: min sum(x_i)
-    for i in universe:
-        Q[(i, i)] = 1
-    # Penalty terms: ensure each subset has at least one element
-    for subset in collection:
-        print(subset)
-        for i in subset:
-            print(i)
-            Q[(i, i)] += -2 * C
-            for j in subset:
-                if i != j:
-                    if (i, j) not in Q:
-                        Q[(i, j)] = 0
-                    Q[(i, j)] += C #TODO fix
-    return Q
 
 # We discart the offset since it is a constant term that does not affect the optimization
 # Now we have to build the hamiltonian with the Pauli gates. We know that the Ising Hamiltonian is given by:
@@ -200,24 +138,21 @@ def main():
     # Read and print the minimal hitting sets from the file
     print("Minimal hitting sets:")
     filepath_mhs = Path.cwd() / 'spectras' / (filename + '-mhs.txt')
-    #read_minimal_hitting_sets(filepath_mhs)
     minimal_hitting_sets = parse_mhs(filepath_mhs)
     #minimal_hitting_sets = [{1, 2}, {2, 3}, {1, 3}]
     print(minimal_hitting_sets)
     minimum_length, minimum_hitting_sets = get_minimum_sets(minimal_hitting_sets)
 
-
-
-
     # collection of sets for the problem
-    #filepath = Path.cwd() / 'spectras' / '3-3-test-conflicts.txt'
-    #size, collection = parse_conflicts(filepath)
+    collection = output_collection
     #universe = set.union(*collection)
     universe = set(i for i in range(1, size+1))
 
+    #------------------------------------------------------------
+    print("----------------------------------------------")
+
     nqubits = size
     print("number of qubits for this problem: ",nqubits)
-
 
     # Penalty constant
     C = 10
@@ -232,7 +167,7 @@ def main():
     # To formulate the model into ising we use a function from qiskit that given the dictionary with the QUBO encoded it gives an output of the Ising Hamiltonian
     # x'Qx -> offset s'Js + h's 
     H_C = qubo_to_ising(Q, offset=0.0)
-    print("ISING Hamiltonian",H_C)
+    #print("ISING Hamiltonian",H_C)
     h, J, offset = H_C
     #print('offset:', offset)
     #print('linear terms:', h)
@@ -250,7 +185,7 @@ def main():
 
     # Now we build the hamiltonian:
     H = Hamiltonian(pauli_strings, coefficients)
-    print("Hamiltonian: ", H)
+    #print("Hamiltonian: ", H)
 
 
     ansatz = QAOAAnsatz(H, reps=10)
@@ -278,14 +213,15 @@ def main():
 
     measurement_circuit = get_measurement_circuit(optimized_circuit)
     counts = execute_circuit(measurement_circuit)
-    print(f"Counts: {counts}")
 
     # Initialize a dictionary to count solution occurrences
     solution_counts = {}
 
     for sample, num_occurrences in counts.items():
         # Convert sample to hitting set format
-        hitting_set = frozenset(i for i,c in enumerate(sample[::-1]) if c == '1')
+        hitting_set = frozenset(i+1 for i,c in enumerate(sample[::-1]) if c == '1') #reverse order because x_0 is least significant
+
+        '0101'
 
         # Count occurrences of each unique solution
         if hitting_set in solution_counts:
