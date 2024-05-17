@@ -4,6 +4,7 @@ from dimod import BinaryQuadraticModel
 from neal import SimulatedAnnealingSampler
 import numpy as np
 from itertools import combinations, chain
+import time
 
 
 #Numer of reads
@@ -64,17 +65,15 @@ def construct_q_matrix(collection, universe, C):
         Q[(i, i)] = 1
     # Penalty terms: ensure each subset has at least one element
     for subset in collection:
-        #subset_list = list(subset)
-        subset_list = subset
         print(subset)
-        for i in subset_list:
+        for i in subset:
             print(i)
             Q[(i, i)] += -2 * C
-            for j in subset_list:
+            for j in subset:
                 if i != j:
                     if (i, j) not in Q:
                         Q[(i, j)] = 0
-                    Q[(i, j)] += 2 * C
+                    Q[(i, j)] += C #TODO fix
     return Q
 
 
@@ -116,6 +115,8 @@ def main():
 
     # Penalty constant
     C = 10
+
+    start_time = time.time()
 
     Q = construct_q_matrix(collection, universe, C) # Construct the Q matrix for the QUBO problem
 
@@ -168,6 +169,11 @@ def main():
     print(f"Ratio of minimal hitting sets: {freq_minimal*100:05.2f}%")
     print(f"Ratio of minimum hitting sets: {freq_minimum*100:05.2f}%")
     print(f"Weighted approximation ratio: {weighted_approx_ratio:.4f}")
+
+    # End timing the computation
+    end_time = time.time()
+    computation_time = end_time - start_time
+    print(f"Computation time: {computation_time:.2f}s")
 
 
 
