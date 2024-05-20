@@ -221,8 +221,6 @@ def main():
         # Convert sample to hitting set format
         hitting_set = frozenset(i+1 for i,c in enumerate(sample[::-1]) if c == '1') #reverse order because x_0 is least significant
 
-        '0101'
-
         # Count occurrences of each unique solution
         if hitting_set in solution_counts:
             solution_counts[hitting_set] += num_occurrences
