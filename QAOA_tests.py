@@ -1,36 +1,22 @@
-# We start by importing the necessary libraries
-from dimod.utilities import qubo_to_ising
-import numpy as np
-import warnings
+# Standard imports
 import time
 from pathlib import Path
-
+import warnings
 warnings.filterwarnings("ignore")
-
-# Pre-defined ansatz circuit, operator class and visualization tools
+import numpy as np
+# User imports
+from helper import parse_conflicts, parse_mhs, get_minimum_sets, is_hitting_set, construct_q_matrix
+# Quantum imports
+from dimod.utilities import qubo_to_ising
 from qiskit.circuit.library import QAOAAnsatz
 from qiskit.quantum_info import SparsePauliOp
-from qiskit.visualization import plot_distribution
-
-# SciPy minimizer routine
 from scipy.optimize import minimize
-
-# rustworkx graph library
-import rustworkx as rx
-from rustworkx.visualization import mpl_draw
-
 from qiskit import Aer, transpile, execute
 from qiskit.utils import QuantumInstance, algorithm_globals
 from qiskit.opflow import StateFn, PauliExpectation, CircuitSampler
 from qiskit.algorithms.optimizers import COBYLA
 from qiskit.opflow import PauliSumOp
 
-from qiskit import Aer, execute
-from qiskit.visualization import plot_histogram
-from itertools import combinations
-
-# User library
-from helper import parse_conflicts, parse_mhs, get_minimum_sets, is_hitting_set, construct_q_matrix
 
 
 # Params
@@ -118,55 +104,10 @@ def execute_circuit(measurement_circuit):
     counts = result.get_counts()
     return counts
 
-def main():
-    # Prompt the user for the file name
-    filename = input("format name (eg 3-5-4; 3-5-9...): ")
-    filepath = Path.cwd() / 'spectras' / (filename + '-conflicts.txt')
-
-    # Read the candidates from the file
-    size, output_collection = parse_conflicts(filepath)
-    #size, output_collection = (3, [{1, 2}, {2, 3}, {1, 3}])
-
-    # Print the output
-    if output_collection:
-        print("Possible candidates:", output_collection)
-    else:
-        print("No candidates found or file is empty.")
-
-    #------------------------------------------------------------
-
-    # Read and print the minimal hitting sets from the file
-    print("Minimal hitting sets:")
-    filepath_mhs = Path.cwd() / 'spectras' / (filename + '-mhs.txt')
-    minimal_hitting_sets = parse_mhs(filepath_mhs)
-    #minimal_hitting_sets = [{1, 2}, {2, 3}, {1, 3}]
-    print(minimal_hitting_sets)
-    minimum_length, minimum_hitting_sets = get_minimum_sets(minimal_hitting_sets)
-
-    # collection of sets for the problem
-    collection = output_collection
-    #universe = set.union(*collection)
-    universe = set(i for i in range(1, size+1))
-
-    #------------------------------------------------------------
-    print("----------------------------------------------")
-
-    nqubits = size
-    print("number of qubits for this problem: ",nqubits)
-
-    # Penalty constant
-    C = 10
-
-    start_time = time.time()
-
-    Q = construct_q_matrix(collection, universe, C) # Construct the Q matrix for the QUBO problem
-    #print("QUBO formulation:",Q)
-
-    #------------------------------------------------------
-
+def run_algorithm(q_matrix, nqubits):
     # To formulate the model into ising we use a function from qiskit that given the dictionary with the QUBO encoded it gives an output of the Ising Hamiltonian
     # x'Qx -> offset s'Js + h's 
-    H_C = qubo_to_ising(Q, offset=0.0)
+    H_C = qubo_to_ising(q_matrix, offset=0.0)
     #print("ISING Hamiltonian",H_C)
     h, J, offset = H_C
     #print('offset:', offset)
@@ -190,9 +131,6 @@ def main():
 
     ansatz = QAOAAnsatz(H, reps=10)
 
-    #now we plot the circuit
-    ansatz.decompose(reps = 3).draw('mpl', style='iqx')
-
     # compatible H for qiskit
     compatible_H = PauliSumOp.from_list(H.to_list())
 
@@ -214,20 +152,68 @@ def main():
     measurement_circuit = get_measurement_circuit(optimized_circuit)
     counts = execute_circuit(measurement_circuit)
 
-    # Initialize a dictionary to count solution occurrences
+    return counts.items()
+
+def get_set_from_sample(sample):
+    """ Convert from sample format of algorithm result to frozenset of integers"""
+    # reverses order of sample since qiskit has samples as binary strings with least sig on right
+    return frozenset(i+1 for i,c in enumerate(sample[::-1]) if c == '1')
+
+def main():
+    # Get data
+
+    # Prompt user
+    filename = input("format name (eg 3-5-4; 3-5-9...): ")
+    filepath = Path.cwd() / 'spectras' / (filename + '-conflicts.txt')
+
+    # Get problem
+    size, conflicts_collection = parse_conflicts(filepath)
+    #size, conflicts_collection = (3, [{1, 2}, {2, 3}, {1, 3}])
+    if conflicts_collection:
+        print("Possible candidates:", conflicts_collection)
+    else:
+        print("No candidates found or file is empty.")
+    #universe = set.union(*conflicts_collection)
+    universe = set(i for i in range(1, size+1))
+    nqubits = size
+    print("number of qubits for this problem: ", nqubits)
+
+    # Get solutions
+    print("Minimal hitting sets:")
+    filepath_mhs = Path.cwd() / 'spectras' / (filename + '-mhs.txt')
+    minimal_hitting_sets = parse_mhs(filepath_mhs)
+    #minimal_hitting_sets = [{1, 2}, {2, 3}, {1, 3}]
+    print(minimal_hitting_sets)
+    minimum_length, minimum_hitting_sets = get_minimum_sets(minimal_hitting_sets)
+
+
+    # Build & run algorithm
+    start_time = time.time()
+
+    C = 10 # Penalty constant
+    Q = construct_q_matrix(conflicts_collection, universe, C) # Construct the Q matrix for the QUBO problem
+    #print("QUBO formulation:",Q)
+    results = run_algorithm(Q, nqubits)
+
+    end_time = time.time()
+    computation_time = end_time - start_time
+    print(f"Computation time: {computation_time:.2f}s")
+
+
+    # Compile results
+
+    # Count solution occurrences
     solution_counts = {}
-
-    for sample, num_occurrences in counts.items():
+    for sample, num_occurrences in results:
         # Convert sample to hitting set format
-        hitting_set = frozenset(i+1 for i,c in enumerate(sample[::-1]) if c == '1') #reverse order because x_0 is least significant
-
+        hitting_set = get_set_from_sample(sample)
         # Count occurrences of each unique solution
         if hitting_set in solution_counts:
             solution_counts[hitting_set] += num_occurrences
         else:
             solution_counts[hitting_set] = num_occurrences
 
-    # Display all unique solutions and their frequencies, compare solution
+    # Compute statistics
     print("Computing stats...")
     freq_minimal = 0
     freq_minimum = 0
@@ -238,10 +224,9 @@ def main():
         freq = count/N
         approx_ratio = len(hitting_set)/minimum_length
         print(f"{set(hitting_set)}\t {freq*100:05.2f}%\t {approx_ratio:.2f}")
-        if is_hitting_set(hitting_set, output_collection):
+        if is_hitting_set(hitting_set, conflicts_collection):
             freq_hitting += freq
             weighted_approx_ratio += freq * approx_ratio
-            
             if hitting_set in minimal_hitting_sets:
                 freq_minimal += freq
             if hitting_set in minimum_hitting_sets:
@@ -252,13 +237,10 @@ def main():
     print(f"Ratio of minimal hitting sets: {freq_minimal*100:05.2f}%")
     print(f"Ratio of minimum hitting sets: {freq_minimum*100:05.2f}%")
     print(f"Weighted approximation ratio: {weighted_approx_ratio:.4f}")
-    
-    # End timing the computation
-    end_time = time.time()
-    computation_time = end_time - start_time
-    print(f"Computation time: {computation_time:.2f}s")
 
 
+
+#------------------------------------------------------------
 
 if __name__ == "__main__":
     main()
