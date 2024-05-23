@@ -1,0 +1,9 @@
+#python=3.10
+numpy == 1.26.*
+matplotlib == 3.8.*
+pylatexenc == 2.*
+qiskit == 0.45.0
+qiskit-aer == 0.13.*
+dwave-ocean-sdk == 6.7.*
+--extra-index-url https://pypi.dwavesys.com/simple
+dwave-system[drivers]
