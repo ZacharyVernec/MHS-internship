@@ -50,21 +50,47 @@ def is_hitting_set(subset, collection):
     return not any(misses)
 
 # Construct the Q matrix for the QUBO problem
-def construct_q_matrix(collection, universe, C):
+def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
+    """
+    Construct the QUBO matrix for the Minimal Hitting Set Problem.
+    
+    Parameters:
+    universe (set): Set of elements in the universe.
+    collection (list of sets): List of subsets of universe.
+    lambda_weight (float): Weight for the hitting condition.
+    beta_weight (float): Weight for avoiding unnecessary elements in larger sets.
+    
+    Returns:
+    dict: QUBO matrix in dictionary format encoding the problem.
+    """
+    # Initialize QUBO dictionary
     Q = {}
-    assert set.union(*collection) <= set(universe), "The collection contains elements outside the universe"
+
+    # Ensure all subsets are within the universe
+    assert all(subset.issubset(universe) for subset in collection), "The collection contains elements outside the universe"
+
     # Linear terms: min sum(x_i)
     for i in universe:
         Q[(i, i)] = 1
+
     # Penalty terms: ensure each subset has at least one element
     for subset in collection:
         for i in subset:
-            Q[(i, i)] += -2 * C
+            Q[(i, i)] += -2 * lambda_weight
             for j in subset:
                 if i != j:
                     if (i, j) not in Q:
                         Q[(i, j)] = 0
-                    Q[(i, j)] += C #TODO fix
+                    Q[(i, j)] += lambda_weight
+    
+    # Additional term to penalize unnecessary elements in larger sets
+    for i in universe:
+        for j in universe:
+            if i != j:
+                if (i, j) not in Q:
+                    Q[(i, j)] = 0
+                Q[(i, j)] -= beta_weight
+
     return Q
 
 
@@ -107,8 +133,11 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     # Build & run algorithm
     start_time = time.time()
 
-    C = 10 # Penalty constant
-    Q = construct_q_matrix(conflicts_collection, universe, C) # Construct the Q matrix for the QUBO problem
+    # Set weights
+    lambda_weight = 5 # Weight for the hitting condition
+    beta_weight = 0.0000000001 # weight to penalize unnecessary elements in larger sets
+
+    Q = construct_q_matrix(conflicts_collection, universe, lambda_weight,beta_weight) # Construct the Q matrix for the QUBO problem
     #print("QUBO formulation:",Q)
     results = run_algorithm(Q, nqubits)
     
