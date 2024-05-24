@@ -2,6 +2,7 @@
 import time
 from pathlib import Path
 import numpy as np
+import argparse
 
 # Parse example files
 def parse_conflicts(filepath):
@@ -79,8 +80,10 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     # Get data
 
     # Prompt user
-    filename = input("format name (eg 3-5-4; 3-5-9...): ")
-    filepath = Path.cwd() / 'spectras' / (filename + '-conflicts.txt')
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('filename', metavar="filename (eg 3-5-4; 3-5-9...): ")
+    args = parser.parse_args()
+    filepath = Path.cwd() / 'spectras' / (args.filename + '-conflicts.txt')
 
     # Get problem
     universe, conflicts_collection = parse_conflicts(filepath)
@@ -94,7 +97,7 @@ def run_tests(run_algorithm, get_set_from_sample, N):
 
     # Get solutions
     print("Minimal hitting sets:")
-    filepath_mhs = Path.cwd() / 'spectras' / (filename + '-mhs.txt')
+    filepath_mhs = Path.cwd() / 'spectras' / (args.filename + '-mhs.txt')
     minimal_hitting_sets = parse_mhs(filepath_mhs)
     #minimal_hitting_sets = [{1, 2}, {2, 3}, {1, 3}]
     print(minimal_hitting_sets)
