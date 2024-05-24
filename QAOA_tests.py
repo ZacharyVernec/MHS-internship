@@ -160,9 +160,12 @@ def get_set_from_sample(sample, universe):
     """ 
     Convert from sample format of algorithm result to frozenset of integers in the universe
 
-    Arguments:
-    sample -- a bitstring of qubit results, where the least significant bit is the rightmost
-    universe -- an ordered list of integers (corresponding to universe elements)
+    Parameters:
+    sample (string): a bitstring of qubit results, where the least significant bit is the rightmost
+    universe (list of ints): Ordered list of elements in the universe.
+
+    Returns:
+    (frozenset of ints): a set representing a candidate hitting set
     """
     return frozenset(universe[i] for i,c in enumerate(sample[::-1]) if c == '1')
 

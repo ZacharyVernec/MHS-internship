@@ -6,6 +6,14 @@ import argparse
 
 # Parse example files
 def parse_conflicts(filepath):
+    """
+    Parse an i-j-k-conflicts.txt file into python objects
+
+    Returns:
+    universe (list of ints): sorted, representing all elements in the file
+    collection (list of sets of ints): representing a collection of conflicts
+    """
+
     # get size
     filename = filepath.name #remove folders 
     size = int(filename.split('-')[0]) #take first number
@@ -22,6 +30,13 @@ def parse_conflicts(filepath):
 
     return universe, collection
 def parse_mhs(filepath):
+    """
+    Parse an i-j-k-mhs.txt file into python objects
+
+    Returns:
+    collection (list of sets of ints): representing a collection of MHS conflicts
+    """
+
     collection = []
     with filepath.open('r') as f:
         str_tuples = f.read().strip()[2:-2].split('}, {') # gives list of e.g. 'c1, c3' strings
@@ -55,14 +70,15 @@ def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
     Construct the QUBO matrix for the Minimal Hitting Set Problem.
     
     Parameters:
-    universe (set): Set of elements in the universe.
+    universe (list of ints): ordered list of elements in the universe.
     collection (list of sets): List of subsets of universe.
     lambda_weight (float): Weight for the hitting condition.
     beta_weight (float): Weight for avoiding unnecessary elements in larger sets.
     
     Returns:
-    dict: QUBO matrix in dictionary format encoding the problem.
+    Q (dict of {(int,int): float}): QUBO matrix with keys being edges and values being weights.
     """
+    
     # Initialize QUBO dictionary
     Q = {}
 

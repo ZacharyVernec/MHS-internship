@@ -28,10 +28,13 @@ def get_set_from_sample(sample, universe):
     """ 
     Convert from sample format of algorithm result to frozenset of integers in the universe
 
-    Arguments:
-    sample -- a dict of {i: binary_val} where i is 1-indexed
-    universe -- an ordered list of integers (corresponding to universe elements)
+    Parameters:
+    sample (dict of {int: bit}): sample from the algorithm, where keys are the elements of the universe
+
+    Returns:
+    (frozenset of ints): a set representing a candidate hitting set
     """
+
     return frozenset(i for i, val in sample.items() if val == 1)
 
 
