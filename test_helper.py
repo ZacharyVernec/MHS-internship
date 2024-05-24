@@ -113,9 +113,12 @@ def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
 def run_tests(run_algorithm, get_set_from_sample, N):
     """Prompts user for file, runs algorithm, and prints results
     
-    Arguments:
-    run_algorithm -- a function that takes a QUBO matrix and returns a dict of {sample: occurrences}
-    get_set_from_sample -- a function that takes an algorithm return sample, and returns a frozenset of integers (corresponding to universe elements)
+    Parameters:
+    run_algorithm (dict -> dict): a function that takes a QUBO matrix and returns a dict of {sample: occurrences}
+    get_set_from_sample (sample, universe -> frozenset): a function that takes an algorithm return sample, and returns a set of integers (corresponding to universe elements)
+    
+    Returns:
+    None, but prints result stats to terminal
     """
 
 
