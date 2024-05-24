@@ -7,3 +7,4 @@ qiskit-aer == 0.13.*
 dwave-ocean-sdk == 6.7.*
 --extra-index-url https://pypi.dwavesys.com/simple
 dwave-system[drivers]
+pandas == 2.2.*

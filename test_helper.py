@@ -1,8 +1,9 @@
 # Standard imports
 import time
 from pathlib import Path
-import numpy as np
 import argparse
+import numpy as np
+import pandas as pd
 
 # Parse example files
 def parse_conflicts(filepath):
@@ -180,22 +181,27 @@ def run_tests(run_algorithm, get_set_from_sample, N):
 
     # Compute statistics
     print("Computing stats...")
-    freq_minimal = 0
-    freq_minimum = 0
-    freq_hitting = 0
-    weighted_approx_ratio = 0
-    print("Hitting set\tFrequency\tApproximation ratio")
-    for hitting_set, count in solution_counts.items():
-        freq = count/N
-        approx_ratio = len(hitting_set)/minimum_length
-        print(f"{set(hitting_set)}\t {freq*100:05.2f}%\t {approx_ratio:.2f}")
-        if is_hitting_set(hitting_set, conflicts_collection):
-            freq_hitting += freq
-            weighted_approx_ratio += freq * approx_ratio
-            if hitting_set in minimal_hitting_sets:
-                freq_minimal += freq
-            if hitting_set in minimum_hitting_sets:
-                freq_minimum += freq
+    
+    df = pd.DataFrame.from_dict(solution_counts, orient='index', columns=['count'])
+    df.index.name = 'Hitting set'
+    df['Frequency'] = df['count']/N
+    df['Size'] = [len(hitting_set) for hitting_set in df.index]
+    df['Approx ratio'] = df['Size']/minimum_length
+    df['Is hitting'] = [is_hitting_set(candidate, conflicts_collection) for candidate in df.index]
+    df['Is minimal'] = df.index.isin([frozenset(mhs) for mhs in minimal_hitting_sets])
+    df['Is minimum'] = (df['Size'] == minimum_length)
+
+    freq_hitting = sum(df[df['Is hitting'] == 1]['Frequency'])
+    freq_minimal = sum(df[df['Is minimal'] == 1]['Frequency'])
+    freq_minimum = sum(df[df['Is minimum'] == 1]['Frequency'])
+    weighted_approx_ratio = sum(df['Frequency'] * df['Approx ratio'])
+
+    # Printing
+
+    df_styled = df[['Frequency', 'Approx ratio']].copy()
+    df_styled['Frequency'] = df_styled['Frequency'].apply(lambda x: '{:05.2f}%'.format(x*100))
+    df_styled['Approx ratio'] = df_styled['Approx ratio'].apply('{:.2f}'.format)
+    print(df_styled)
 
     print("Results: ")
     print(f"Ratio of hitting sets: {freq_hitting*100:05.2f}%")
