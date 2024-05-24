@@ -156,11 +156,15 @@ def run_algorithm(q_matrix, nqubits):
 
     return counts.items()
 
-def get_set_from_sample(sample):
-    """ Convert from sample format of algorithm result to frozenset of integers"""
-    # reverses order of sample since qiskit has samples as binary strings with least sig on right
-    return frozenset(i+1 for i,c in enumerate(sample[::-1]) if c == '1')
+def get_set_from_sample(sample, universe):
+    """ 
+    Convert from sample format of algorithm result to frozenset of integers in the universe
 
+    Arguments:
+    sample -- a bitstring of qubit results, where the least significant bit is the rightmost
+    universe -- an ordered list of integers (corresponding to universe elements)
+    """
+    return frozenset(universe[i] for i,c in enumerate(sample[::-1]) if c == '1')
 
 #------------------------------------------------------------
 

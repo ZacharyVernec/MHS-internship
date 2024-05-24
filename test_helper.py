@@ -16,8 +16,10 @@ def parse_conflicts(filepath):
             line = line.strip()[1:-1] # remove whitespace and curly braces
             subset = set(int(x[1:]) for x in line.split(',')) #split into items, remove c prefix
             collection.append(subset)
+    universe = list(set.union(*collection))
+    universe.sort()
 
-    return size, collection
+    return universe, collection
 def parse_mhs(filepath):
     collection = []
     with filepath.open('r') as f:
@@ -49,7 +51,7 @@ def is_hitting_set(subset, collection):
 # Construct the Q matrix for the QUBO problem
 def construct_q_matrix(collection, universe, C):
     Q = {}
-    assert set.union(*collection) <= universe, "The collection contains elements outside the universe"
+    assert set.union(*collection) <= set(universe), "The collection contains elements outside the universe"
     # Linear terms: min sum(x_i)
     for i in universe:
         Q[(i, i)] = 1
@@ -70,7 +72,7 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     
     Arguments:
     run_algorithm -- a function that takes a QUBO matrix and returns a dict of {sample: occurrences}
-    get_set_from_sample -- a function that takes a sample and returns a frozenset of integers
+    get_set_from_sample -- a function that takes an algorithm return sample, and returns a frozenset of integers (corresponding to universe elements)
     """
 
 
@@ -81,16 +83,14 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     filepath = Path.cwd() / 'spectras' / (filename + '-conflicts.txt')
 
     # Get problem
-    size, conflicts_collection = parse_conflicts(filepath)
-    #size, conflicts_collection = (3, [{1, 2}, {2, 3}, {1, 3}])
+    universe, conflicts_collection = parse_conflicts(filepath)
+    #universe, conflicts_collection = (3, [{1, 2}, {2, 3}, {1, 3}])
     if conflicts_collection:
         print("Possible candidates:", conflicts_collection)
     else:
         print("No candidates found or file is empty.")
-    #universe = set.union(*conflicts_collection)
-    universe = set(i for i in range(1, size+1))
-    nqubits = size
-    print("number of qubits for this problem: ", nqubits)
+    nqubits = len(universe)
+    print("Number of qubits for this problem: ", nqubits)
 
     # Get solutions
     print("Minimal hitting sets:")
@@ -120,7 +120,7 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     solution_counts = {}
     for sample, num_occurrences in results:
         # Convert sample to hitting set format
-        hitting_set = get_set_from_sample(sample)
+        hitting_set = get_set_from_sample(sample, universe)
         # Count occurrences of each unique solution
         if hitting_set in solution_counts:
             solution_counts[hitting_set] += num_occurrences

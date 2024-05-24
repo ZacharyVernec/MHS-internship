@@ -24,8 +24,14 @@ def run_algorithm(q_matrix, nqubits):
 
     return sampleset.data(['sample', 'num_occurrences'])
 
-def get_set_from_sample(sample):
-    """ Convert from sample format of algorithm result to frozenset of integers"""
+def get_set_from_sample(sample, universe):
+    """ 
+    Convert from sample format of algorithm result to frozenset of integers in the universe
+
+    Arguments:
+    sample -- a dict of {i: binary_val} where i is 1-indexed
+    universe -- an ordered list of integers (corresponding to universe elements)
+    """
     return frozenset(i for i, val in sample.items() if val == 1)
 
 
