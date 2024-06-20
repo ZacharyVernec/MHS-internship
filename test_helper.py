@@ -1,9 +1,10 @@
 # Standard imports
 import time
 from pathlib import Path
-import argparse
 import numpy as np
-import pandas as pd
+import argparse
+from collections import defaultdict
+from math import sqrt
 
 # Parse example files
 def parse_conflicts(filepath):
@@ -100,7 +101,7 @@ def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
                         Q[(i, j)] = 0
                     Q[(i, j)] += lambda_weight
     
-    # Additional term to penalize unnecessary elements in larger sets
+    # Additional term to penalize unnecessary elements in larger sets (Second version of our QUBO formulation. They give better results!)
     for i in universe:
         for j in universe:
             if i != j:
@@ -110,16 +111,49 @@ def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
 
     return Q
 
+def compute_overlap(minimal_hitting_sets, solution_counts, N):
+    """
+    Compute the overlap squared between the exact solution and the one obtained by the QA simulation.
+
+    Parameters:
+    minimal_hitting_sets (list of sets): List of minimal hitting sets (exact solution)
+    solution_counts (dict of {frozenset: int}): Dictionary of solution samples and their occurrences from the QA simulation.
+    N (int): Number of reads
+
+    Returns:
+    overlap_squared (float): The squared overlap between the exact solution and the QA simulation.
+    """
+
+    # Normalize the frequencies to probabilities
+    total_count = sum(solution_counts.values())
+    normalized_frequencies = {k: v / total_count for k, v in solution_counts.items()}
+
+    # Construct phi_sol vector
+    num_minimal_sets = len(minimal_hitting_sets)
+    phi_sol = defaultdict(float)
+    for i, mhs in enumerate(minimal_hitting_sets):
+        phi_sol[frozenset(mhs)] = 1 / sqrt(num_minimal_sets)
+
+    # Construct phi_QA vector
+    phi_QA = defaultdict(float)
+    for hs, prob in normalized_frequencies.items():
+        for i, mhs in enumerate(minimal_hitting_sets):
+            if hs == mhs:
+                phi_QA[frozenset(mhs)] = sqrt(prob)
+
+    # Compute overlap
+    overlap = sum(phi_sol[k] * phi_QA[k] for k in phi_sol)
+    overlap_squared = overlap ** 2
+    return overlap_squared
+
+
 
 def run_tests(run_algorithm, get_set_from_sample, N):
     """Prompts user for file, runs algorithm, and prints results
     
-    Parameters:
-    run_algorithm (dict -> dict): a function that takes a QUBO matrix and returns a dict of {sample: occurrences}
-    get_set_from_sample (sample, universe -> frozenset): a function that takes an algorithm return sample, and returns a set of integers (corresponding to universe elements)
-    
-    Returns:
-    None, but prints result stats to terminal
+    Arguments:
+    run_algorithm -- a function that takes a QUBO matrix and returns a dict of {sample: occurrences}
+    get_set_from_sample -- a function that takes an algorithm return sample, and returns a frozenset of integers (corresponding to universe elements)
     """
 
 
@@ -181,30 +215,46 @@ def run_tests(run_algorithm, get_set_from_sample, N):
 
     # Compute statistics
     print("Computing stats...")
-    
-    df = pd.DataFrame.from_dict(solution_counts, orient='index', columns=['count'])
-    df.index.name = 'Hitting set'
-    df['Frequency'] = df['count']/N
-    df['Size'] = [len(hitting_set) for hitting_set in df.index]
-    df['Approx ratio'] = df['Size']/minimum_length
-    df['Is hitting'] = [is_hitting_set(candidate, conflicts_collection) for candidate in df.index]
-    df['Is minimal'] = df.index.isin([frozenset(mhs) for mhs in minimal_hitting_sets])
-    df['Is minimum'] = (df['Size'] == minimum_length)
+    freq_minimal = 0
+    freq_minimum = 0
+    freq_hitting = 0
+    weighted_approx_ratio = 0
 
-    freq_hitting = sum(df[df['Is hitting'] == 1]['Frequency'])
-    freq_minimal = sum(df[df['Is minimal'] == 1]['Frequency'])
-    freq_minimum = sum(df[df['Is minimum'] == 1]['Frequency'])
-    weighted_approx_ratio = sum(df['Frequency'] * df['Approx ratio'])
-
-    # Printing
-
-    df_styled = df[['Frequency', 'Approx ratio']].copy()
-    df_styled['Frequency'] = df_styled['Frequency'].apply(lambda x: '{:05.2f}%'.format(x*100))
-    df_styled['Approx ratio'] = df_styled['Approx ratio'].apply('{:.2f}'.format)
-    print(df_styled)
+    print("Hitting set\tFrequency\tApproximation ratio")
+    for hitting_set, count in solution_counts.items():
+        freq = count/N
+        approx_ratio = len(hitting_set)/minimum_length
+        print(f"{set(hitting_set)}\t {freq*100:05.2f}%\t {approx_ratio:.2f}")
+        if is_hitting_set(hitting_set, conflicts_collection):
+            freq_hitting += freq
+            weighted_approx_ratio += freq * approx_ratio
+            if hitting_set in minimal_hitting_sets:
+                freq_minimal += freq
+            if hitting_set in minimum_hitting_sets:
+                freq_minimum += freq
 
     print("Results: ")
     print(f"Ratio of hitting sets: {freq_hitting*100:05.2f}%")
     print(f"Ratio of minimal hitting sets: {freq_minimal*100:05.2f}%")
     print(f"Ratio of minimum hitting sets: {freq_minimum*100:05.2f}%")
+    print(f"Weighted approximation ratio: {weighted_approx_ratio:.4f}")
+
+    # Compute and print overlap
+    overlap = compute_overlap(minimal_hitting_sets, solution_counts, N)
+    print(f"Overlap: {overlap:.4f}")
+
+    # Save data into a folder.
+    output_folder = Path.cwd() / 'QA_results'
+    output_folder.mkdir(exist_ok=True)
+    results_file = output_folder / f"{nqubits}-qubit-results.txt"
+
+    with results_file.open('a') as f:
+        # Write header if file is empty
+        if results_file.stat().st_size == 0:
+            f.write("Filename\tRatio of hitting sets\tRatio of minimal hitting sets\tRatio of minimum hitting sets\tWeighted approximation ratio\tOverlap\n")
+        # Write the summary line
+        f.write(f"{args.filename}\t{freq_hitting*100:05.2f}%\t{freq_minimal*100:05.2f}%\t{freq_minimum*100:05.2f}%\t{weighted_approx_ratio:.4f}\t{overlap:.4f}\n")
+
+    print(f"Results saved to {results_file}")
+    print("------------------------------")
     print(f"Weighted approximation ratio: {weighted_approx_ratio:.4f}")
