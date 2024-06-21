@@ -113,7 +113,7 @@ def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
 
 def compute_overlap(minimal_hitting_sets, solution_counts, N):
     """
-    Compute the overlap squared between the exact solution and the one obtained by the QA simulation.
+    Compute the overlap between the exact solution and the one obtained by the QA simulation.
 
     Parameters:
     minimal_hitting_sets (list of sets): List of minimal hitting sets (exact solution)
@@ -121,7 +121,7 @@ def compute_overlap(minimal_hitting_sets, solution_counts, N):
     N (int): Number of reads
 
     Returns:
-    overlap_squared (float): The squared overlap between the exact solution and the QA simulation.
+    overlap (float): The overlap between the exact solution and the QA simulation.
     """
 
     # Normalize the frequencies to probabilities
@@ -143,8 +143,8 @@ def compute_overlap(minimal_hitting_sets, solution_counts, N):
 
     # Compute overlap
     overlap = sum(phi_sol[k] * phi_QA[k] for k in phi_sol)
-    overlap_squared = overlap ** 2
-    return overlap_squared
+    return overlap
+
 
 
 
