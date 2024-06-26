@@ -33,7 +33,6 @@ done < names_mhs.txt
 # Compute average ratios for each qubit size
 for qubit_size in {3..10}; do
     results_file="${qubit_size}-qubit-results.txt"
-    average_file="${qubit_size}-qubit-average.out"
     
     if [ -f "$results_file" ]; then
         total=0
