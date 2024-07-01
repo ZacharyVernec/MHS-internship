@@ -30,26 +30,8 @@ while IFS= read -r name; do
     fi
 done < names_mhs.txt
 
-# Compute average ratios for each qubit size
-for qubit_size in {3..10}; do
-    results_file="${qubit_size}-qubit-results.txt"
-    
-    if [ -f "$results_file" ]; then
-        total=0
-        count=0
-        while read -r line; do
-            ratio=$(echo $line | awk '{print $2}' | sed 's/%//')
-            total=$(echo "$total + $ratio" | bc)
-            count=$((count + 1))
-        done < "$results_file"
+# Remove the names_mhs.txt file
+rm names_mhs.txt
 
-        if [ $count -ne 0 ]; then
-            average=$(echo "$total / $count" | bc -l)
-            echo "Average ratio: $average" > "$average_file"
-        else
-            echo "No valid test cases found for qubit size $qubit_size" > "$average_file"
-        fi
-    else
-        echo "No results file found for qubit size $qubit_size" > "$average_file"
-    fi
-done
+# Exit with success
+exit 0
