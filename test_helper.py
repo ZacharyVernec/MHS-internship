@@ -257,4 +257,3 @@ def run_tests(run_algorithm, get_set_from_sample, N):
 
     print(f"Results saved to {results_file}")
     print("------------------------------")
-    print(f"Weighted approximation ratio: {weighted_approx_ratio:.4f}")
