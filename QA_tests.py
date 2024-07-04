@@ -34,8 +34,8 @@ def get_set_from_sample(sample, universe):
     Returns:
     (frozenset of ints): a set representing a candidate hitting set
     """
-
-    return frozenset(i for i, val in sample.items() if val == 1)
+    max_universe = max(universe, default=-1) #default for empty universe: arbitrary as sample will be empty
+    return frozenset(i for i, val in sample.items() if ((val == 1) and (i <= max_universe)))
 
 
 #------------------------------------------------------------

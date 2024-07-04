@@ -167,7 +167,7 @@ def get_set_from_sample(sample, universe):
     Returns:
     (frozenset of ints): a set representing a candidate hitting set
     """
-    return frozenset(universe[i] for i,c in enumerate(sample[::-1]) if c == '1')
+    return frozenset(universe[i] for i,c in enumerate(sample[len(universe)-1::-1]) if c == '1') #TODO check
 
 #------------------------------------------------------------
 

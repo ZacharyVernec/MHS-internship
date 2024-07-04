@@ -83,6 +83,15 @@ def construct_q_matrix(collection, universe, lambda_weight, beta_weight):
     Returns:
     Q (dict of {(int,int): float}): QUBO matrix with keys being edges and values being weights.
     """
+
+    universe_size = len(universe)
+    collection_size = len(collection)
+
+    def get_ancilla_index(j, k):
+        assert k >= 1
+        assert k <= len(collection[j])
+        cum_collection_lengths = np.cumsum([0] + [len(s) for s in collection]) + (np.max(universe)+1)
+        return cum_collection_lengths[j] + (k-1)
     
     # Initialize QUBO dictionary
     Q = {}
@@ -90,27 +99,34 @@ def construct_q_matrix(collection, universe, lambda_weight, beta_weight):
     # Ensure all subsets are within the universe
     assert all(subset.issubset(universe) for subset in collection), "The collection contains elements outside the universe"
 
-    # Linear terms: min sum(x_i)
+    # Terms with x_i only:
     for i in universe:
-        Q[(i, i)] = 1
+        for i_prime in universe:
+            if i == i_prime: #linear terms
+                Q[(i, i)] = np.sum(1 for s in collection if i in s)
+            elif i < i_prime: #quadratic terms
+                Q[(i, i_prime)] = 2 * np.sum(1 for s in collection if ((i in s) and (i_prime in s)))
 
-    # Penalty terms: ensure each subset has at least one element
-    for subset in collection:
-        for i in subset:
-            Q[(i, i)] += -2 * lambda_weight
-            for j in subset:
-                if i != j:
-                    if (i, j) not in Q:
-                        Q[(i, j)] = 0
-                    Q[(i, j)] += lambda_weight
-    
-    # Additional term to penalize unnecessary elements in larger sets (Second version of our QUBO formulation. They give better results!)
-    for i in universe:
-        for j in universe:
-            if i != j:
-                if (i, j) not in Q:
-                    Q[(i, j)] = 0
-                Q[(i, j)] -= beta_weight
+    # Terms with y_jk only:
+    for j in range(collection_size):
+        subset_size = len(collection[j])
+        for k in range(1, subset_size+1):
+            for k_prime in range(1, subset_size+1):
+                if k == k_prime: #linear terms
+                    idx = get_ancilla_index(j, k)
+                    Q[(idx, idx)] = k*k-1
+                elif k < k_prime: #quadratic terms
+                    idx = get_ancilla_index(j, k)
+                    idx_prime = get_ancilla_index(j, k_prime)
+                    Q[(idx, idx_prime)] = 2 * (k * k_prime + 1)
+
+    # Cross terms:
+    for j in range(collection_size):
+        subset_size = len(collection[j])
+        for i in collection[j]:
+            for k in range(1, subset_size+1):
+                idx = get_ancilla_index(j, k)
+                Q[(i, idx)] = -2 * k
 
     return Q
 
@@ -170,32 +186,29 @@ def run_tests(run_algorithm, get_set_from_sample, N):
 
     # Get problem
     universe, conflicts_collection = parse_conflicts(filepath)
-    #universe, conflicts_collection = (3, [{1, 2}, {2, 3}, {1, 3}])
     if conflicts_collection:
         print("Possible candidates:", conflicts_collection)
     else:
         print("No candidates found or file is empty.")
-    nqubits = len(universe)
+    nqubits = len(universe) + np.sum(len(s) for s in conflicts_collection) #TODO check where used downstream
     print("Number of qubits for this problem: ", nqubits)
 
     # Get solutions
     print("Minimal hitting sets:")
     filepath_mhs = Path.cwd() / 'spectras' / (args.filename + '-mhs.txt')
     minimal_hitting_sets = parse_mhs(filepath_mhs)
-    #minimal_hitting_sets = [{1, 2}, {2, 3}, {1, 3}]
-    print(minimal_hitting_sets)
     minimum_length, minimum_hitting_sets = get_minimum_sets(minimal_hitting_sets)
 
 
     # Build & run algorithm
     start_time = time.time()
 
-    # Set weights
+    # Set weights #TODO
     lambda_weight = 5 # Weight for the hitting condition
     beta_weight = 0.0000000001 # weight to penalize unnecessary elements in larger sets
 
     Q = construct_q_matrix(conflicts_collection, universe, lambda_weight,beta_weight) # Construct the Q matrix for the QUBO problem
-    #print("QUBO formulation:",Q)
+    #print("QUBO formulation:", Q)
     results = run_algorithm(Q, nqubits)
     
     end_time = time.time()
