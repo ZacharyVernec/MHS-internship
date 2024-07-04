@@ -27,7 +27,10 @@ def parse_conflicts(filepath):
             line = line.strip()[1:-1] # remove whitespace and curly braces
             subset = set(int(x[1:]) for x in line.split(',')) #split into items, remove c prefix
             collection.append(subset)
-    universe = list(set.union(*collection))
+    if collection == []: #empty
+        universe = []
+    else:
+        universe = list(set.union(*collection))
     universe.sort()
 
     return universe, collection
@@ -43,7 +46,7 @@ def parse_mhs(filepath):
     with filepath.open('r') as f:
         str_tuples = f.read().strip()[2:-2].split('}, {') # gives list of e.g. 'c1, c3' strings
     if str_tuples == ['']: #empty
-        collection.append[set()]
+        collection.append(set())
     else: #nonempty
         collection = []
         for tup in str_tuples:
@@ -63,11 +66,11 @@ def get_minimum_sets(collection):
             argmins.append(subset)
     return minimum, argmins
 def is_hitting_set(subset, collection):
-    misses = [subset.isdisjoint(s) for s in collection]
+    misses = [s.isdisjoint(subset) for s in collection]
     return not any(misses)
 
 # Construct the Q matrix for the QUBO problem
-def construct_q_matrix(collection, universe, lambda_weight,beta_weight):
+def construct_q_matrix(collection, universe, lambda_weight, beta_weight):
     """
     Construct the QUBO matrix for the Minimal Hitting Set Problem.
     
@@ -223,7 +226,10 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     print("Hitting set\tFrequency\tApproximation ratio")
     for hitting_set, count in solution_counts.items():
         freq = count/N
-        approx_ratio = len(hitting_set)/minimum_length
+        try: 
+            approx_ratio = len(hitting_set)/minimum_length
+        except ZeroDivisionError:
+            approx_ratio = 1
         print(f"{set(hitting_set)}\t {freq*100:05.2f}%\t {approx_ratio:.2f}")
         if is_hitting_set(hitting_set, conflicts_collection):
             freq_hitting += freq
