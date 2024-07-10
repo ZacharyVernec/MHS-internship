@@ -1,7 +1,7 @@
 # Quantum imports
 from dwave.system import EmbeddingComposite, DWaveSampler
 from dimod import BinaryQuadraticModel
-from neal import SimulatedAnnealingSampler
+from neal import SimulatedAnnealingSampler #TODO move to dwave.samplers as neal is deprecated
 from itertools import combinations, chain
 
 # User imports

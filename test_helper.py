@@ -198,6 +198,7 @@ def run_tests(run_algorithm, get_set_from_sample, N):
     filepath_mhs = Path.cwd() / 'spectras' / (args.filename + '-mhs.txt')
     minimal_hitting_sets = parse_mhs(filepath_mhs)
     minimum_length, minimum_hitting_sets = get_minimum_sets(minimal_hitting_sets)
+    #TODO missing printing of minimal hitting sets
 
 
     # Build & run algorithm

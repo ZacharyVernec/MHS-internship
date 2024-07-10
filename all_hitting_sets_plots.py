@@ -14,10 +14,12 @@ sizes = np.unique(universe_sizes)
 mean_probs = [np.mean(hitting_set_probabilities[universe_sizes == size]) for size in sizes]
 std_probs = [np.std(hitting_set_probabilities[universe_sizes == size]) for size in sizes]
 
-plt.errorbar(sizes, mean_probs, yerr=std_probs)
-plt.axhline(y=0.01, color='r', linestyle='--')
+plt.errorbar(sizes, mean_probs, yerr=std_probs, label='Mean hitting set probs for random conflicts', color='g')
+plt.plot(sizes, 1/2**sizes, color='b', label='Hitting set prob for max number of hitting sets')
+plt.axhline(y=0.01, color='r', linestyle='--', label='Noise floor of 1%')
 
 plt.xlabel('Universe Size')
 plt.ylabel('Hitting Set Probability')
 plt.yscale('log')
+plt.legend()
 plt.savefig(outfolderpath / 'hitting_set_probabilities.png')
